@@ -1,14 +1,26 @@
 """
 Immich Live Photo Unlinker Script
 
-Unlinks previously linked Live Photos using the audit CSV from the
-`link_livephoto_videos.py` script.
+Features:
+- Unlinks previously linked Live Photos using the audit CSV
+- Interactive confirmation prompts
+- Dry run mode
+- Audit trail for failed unlinks
+
+Usage:
+1. Configure API settings in the `config.yaml` file
+2. Run: python unlink_livephoto_videos.py --linked-csv PATH_TO_CSV [flags]
+
+Safety:
+- Back up your database before running
+- Always test with --dry-run first
 """
 
 import json
 import requests
 import pandas as pd
 from datetime import datetime
+from utils import get_confirmation, load_config, parse_unlink_args
 
 
 def unlink_livephoto_assets(linked_assets_df: pd.DataFrame, api_config: dict):
@@ -66,17 +78,6 @@ def unlink_livephoto_assets(linked_assets_df: pd.DataFrame, api_config: dict):
     return
 
 
-def get_confirmation(prompt: str) -> bool:
-    """Get validated yes/no input from user."""
-    while True:
-        response = input(prompt).lower()
-        if response in ("y", "yes"):
-            return True
-        if response in ("n", "no"):
-            return False
-        print("Invalid input. Please enter y/yes or n/no")
-
-
 def unlink_from_csv(csv_path: str, api_config: dict, dry_run: bool = False):
     """Main function to unlink Live Photos from audit CSV.
 
@@ -121,24 +122,16 @@ def unlink_from_csv(csv_path: str, api_config: dict, dry_run: bool = False):
 
 if __name__ == "__main__":
     # ================================================
-    # ⚠️ BEFORE SHARING/COMMITTING: ⚠️
-    # 1. Replace all credentials with placeholders
-    # 2. Remove any personal IP addresses
-    # ================================================
-    api_config = {
-        "api_key": "YOUR_API_KEY_HERE",
-        "url": "http://YOUR_IMMICH_URL:PORT",
-    }
-
-    csv_path = "AUDIT_LINKED_ASSETS_FILE.csv"  # Update with your CSV path
-
-    # ================================================
     # ⚠️ BEFORE RUNNING: ⚠️
     # 1. Ensure you have a database backup
-    # 2. Run the script with `dry_run=True` for testing
+    # 2. Run the script with --dry-run for testing
     # ================================================
+    args = parse_unlink_args()
+    config = load_config(args.config)
+
+    # Only need API config for unlinking
     unlink_from_csv(
-        csv_path=csv_path,
-        api_config=api_config,
-        dry_run=False,  # Set to False to actually unlink
+        csv_path=args.linked_csv,
+        api_config=config["api"],
+        dry_run=args.dry_run,
     )
