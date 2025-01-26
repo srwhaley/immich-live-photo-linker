@@ -3,6 +3,20 @@ A utility script that uses the Immich API to fix unlinked Live Photos in Immich
 by connecting HEIC/JPEG photos with their corresponding MOV/MP4 video
 components.
 
+### Contents
+
+- [Overview](#overview)
+   - [Background](#background)
+   - [Script Features](#script-features)
+- [Usage](#usage)
+    - [Requirements](#requirements)
+    - [Details](#details)
+    - [Installation](#installation)
+    - [Configuration](#configuration)
+    - [Running](#running)
+- [Notes](#notes)
+
+# Overview
 ### Background
 iOS Live Photos consist of a photo (HEIC/JPEG) and video (MOV) component. When
 importing Live Photos into Immich, sometimes the link between these components
@@ -31,7 +45,7 @@ to automate the process.
 - Immich Postgres Database access
 - Script package dependencies (`requirements.txt`)
 
-## Overview
+## Details
 This script is meant to connect Live Video files to their Live Photo file
 counterparts. Your Live Video filenames should share the same prefix as the
 Live Photo filenames. Example:
