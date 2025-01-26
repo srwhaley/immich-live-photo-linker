@@ -13,7 +13,6 @@ provided.
    - [Script Features](#script-features)
 - [Live Photo Linking Script Usage](#linking-script-usage)
     - [Requirements](#requirements)
-    - [Details](#details)
     - [Installation](#installation)
     - [Configuration](#configuration)
     - [Running](#running)
@@ -52,6 +51,26 @@ This script was a life saver for repairing my library.
     - See instructions in `config.yaml` for finding this IP
 - Script package dependencies (`requirements.txt`)
 
+## Installation
+1. Clone this repository
+2. Install required packages:
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+## Configuration
+Update the cloned `config.yaml` file with your Immich API and database settings.
+
+Otherwise, create your own config file and copy the content structure from the
+`config.yaml` file in this repo.
+
+To identify the Immich Postgres database IP, you can run:
+
+```
+sudo docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' immich_postgres
+```
+
+## Running
 ### Example Script Run
 ```bash
 # Dry run to test configuration and see what would be linked
@@ -84,26 +103,7 @@ Successfully linked 1753 files.
 Live Photos linking complete!
 ```
 
-## Installation
-1. Clone this repository
-2. Install required packages:
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-## Configuration
-Update the cloned `config.yaml` file with your Immich API and database settings.
-
-Otherwise, create your own config file and copy the content structure from the
-`config.yaml` file in this repo.
-
-To identify the Immich Postgres database IP, you can run:
-
-```
-sudo docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' immich_postgres
-```
-
-## Running
+### Step-By-Step
 1. ***WARNING:*** Ensure you have a backup of your Immich database.
 2. Test the script in dry-run mode:
    ```bash
