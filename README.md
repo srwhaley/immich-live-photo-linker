@@ -26,12 +26,8 @@ importing Live Photos into Immich, sometimes the link between these components
 can be lost. This script identifies and repairs these broken connections.
 
 One can link Live Photos/Videos one-by-one in the Immich web app, but this is
-overwhelming when thousands of images need linked. Thus, I created this script
-to automate the process.
-
-For background, I first imported my 30k iOS images into Immich using the Immich
-CLI, 10% of my Live Photos were randomly not linked to their video counterparts.
-This script was a life saver for repairing my library.
+overwhelming when thousands of images need linked. As such, I created this
+script to automate the process.
 
 ### Script Features
 - Identifies unlinked Live Photo/Video pairs
