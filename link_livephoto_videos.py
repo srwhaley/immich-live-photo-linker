@@ -8,12 +8,12 @@ Features:
 - Dry run mode
 
 Usage:
-1. Configure API and DB settings at bottom of file
-2. Run: python immich_livephotos.py
+1. Configure API and DB settings in the `config.yaml` file
+2. Run: `python link_livephoto_videos.py [flags]`
 
 Safety:
-- Back up your database before running
-- Always test with dry_run=True first
+- Back up your database before running.
+- Always test with `--dry-run` first.
 """
 
 import json
@@ -22,10 +22,10 @@ import psycopg2
 import pandas as pd
 
 from datetime import datetime
+from utils import get_confirmation, validate_config, load_config, parse_link_args
 
 
 def get_unlinked_livephoto_ids(
-    live_video_suffix: str,
     db_config: dict,
 ) -> pd.DataFrame:
     """Identify unlinked Live Photo assets in Immich database.
@@ -40,17 +40,23 @@ def get_unlinked_livephoto_ids(
     Raises:
         ConnectionError: If database connection fails.
     """
-    live_video_suffix = live_video_suffix.replace(".", r"\.") + "$"
     unlinked_photo_assets_df = pd.DataFrame()
 
     # Identify all unlinked photo IDs.
+    # Three step process
+    # 1. Get all video filenames
+    # 2. Get all photo filenames with identical *base* names as the videos.
+    #   - e.g., Photo File: "IMG_1234.heic"; Video File: "IMG_1234.MOV"
+    # 3. Filter out problematic photo file candidates:
+    #   - Duplicated photos
+    #   - Photo/Video files with identical filenames but mismatched timestamps.
     with psycopg2.connect(**db_config) as conn:
         with conn.cursor() as cur:
-            # First, locate all live video assets
-            cur.execute(f"""
+            # 1. Get all live video assets
+            cur.execute(r"""
                 SELECT id, "originalFileName", "fileCreatedAt"
                 FROM assets 
-                WHERE "originalFileName" ~ '{live_video_suffix}';
+                WHERE lower("originalFileName") ~ '\.(mov|mp4)$';
             """)
             video_assets = cur.fetchall()
             video_assets_df = pd.DataFrame(
@@ -59,22 +65,22 @@ def get_unlinked_livephoto_ids(
             )
 
             if video_assets_df.empty:
-                print("No unlinked Live Videos identified.")
+                print("No video assets identified. Ending script.")
                 quit()
 
-            video_assets_df["photo_basefilename"] = video_assets_df[
-                "video_filename"
-            ].str.replace(live_video_suffix, "", regex=True)
+            video_assets_df["photo_basefilename"] = (
+                video_assets_df["video_filename"]
+                .str.replace(r"\.[^.]+$", "", regex=True)
+                .str.replace(r"\_\d$", "", regex=True)
+            )
 
-            # Next, find all live photo assets that are missing livePhotoVideoId's.
+            # 2. Get all live photo assets that are missing livePhotoVideoId's.
             photo_basefilename = tuple(video_assets_df["photo_basefilename"].tolist())
             cur.execute(rf"""
                         SELECT id, "originalFileName", "fileCreatedAt"
                         FROM assets
                         WHERE "livePhotoVideoId" IS NULL
-                        AND "originalFileName" !~ '{live_video_suffix}'
-                        AND lower("originalFileName") !~ '.mov$'
-                        AND lower("originalFileName") !~ '.mp4$'
+                        AND lower("originalFileName") !~ '\.(mov|mp4)$'
                         AND regexp_replace("originalFileName", '\..*$', '') IN {photo_basefilename};
                         """)
 
@@ -84,16 +90,16 @@ def get_unlinked_livephoto_ids(
                 columns=["photo_asset_id", "photo_filename", "photo_filedate"],
             )
 
-            # Finally, left join the video asset df to the unlinked photo df
+            # Merge the video asset df to the unlinked photo df
             if unlinked_photo_assets_df.empty:
-                print("No unlinked Live Photos identified.")
+                print("No unlinked Live Photos identified. Ending script.")
                 quit()
 
             unlinked_photo_assets_df["photo_basefilename"] = unlinked_photo_assets_df[
                 "photo_filename"
-            ].str.replace(r"\..*$", "", regex=True)
+            ].str.replace(r"\.[^.]+$", "", regex=True)
             unlinked_photo_assets_df = unlinked_photo_assets_df.merge(
-                video_assets_df, on="photo_basefilename", how="left", validate="1:1"
+                video_assets_df, on="photo_basefilename", how="left"
             )
 
             if unlinked_photo_assets_df["video_asset_id"].isna().any():
@@ -105,6 +111,53 @@ def get_unlinked_livephoto_ids(
                 print(
                     f"Removed {o_nfile - unlinked_photo_assets_df.shape[0]} unlinked assets with missing video files."
                 )
+
+            # 3.1 Remove duplicated ids
+            candidate_livephoto_files = tuple(
+                unlinked_photo_assets_df["photo_filename"].tolist()
+            )
+            cur.execute(f"""
+                        SELECT "originalFileName"
+                        FROM assets
+                        WHERE "originalFileName" IN {candidate_livephoto_files}
+                        GROUP BY "originalFileName"
+                        HAVING COUNT(*) > 1;
+                        """)
+
+            duplicate_files = [row[0] for row in cur.fetchall()]
+            if duplicate_files:
+                unlinked_photo_assets_df = unlinked_photo_assets_df[
+                    ~unlinked_photo_assets_df["photo_filename"].isin(duplicate_files)
+                ]
+
+    # 3.2 Filter the unlinked photo assets df to only include photo/video files
+    # with a matching time stamp within 3 seconds.
+    # This is because sometimes video/photo filenames can be reused over time.
+    unlinked_photo_assets_df["photo_dt"] = pd.to_datetime(
+        unlinked_photo_assets_df["photo_filedate"]
+    )
+    unlinked_photo_assets_df["video_dt"] = pd.to_datetime(
+        unlinked_photo_assets_df["video_filedate"]
+    )
+
+    # Calculate time difference in seconds
+    unlinked_photo_assets_df["time_diff"] = (
+        (unlinked_photo_assets_df["photo_dt"] - unlinked_photo_assets_df["video_dt"])
+        .dt.total_seconds()
+        .abs()
+    )
+    MAX_TIME_DIFF = 3  # seconds
+    unlinked_photo_assets_df = unlinked_photo_assets_df[
+        unlinked_photo_assets_df["time_diff"] <= MAX_TIME_DIFF
+    ]
+
+    unlinked_photo_assets_df = unlinked_photo_assets_df.drop(
+        ["photo_dt", "video_dt", "time_diff"], axis=1
+    ).reset_index()
+
+    if unlinked_photo_assets_df.empty:
+        print("No unlinked Live Photos identified. Ending script.")
+        quit()
 
     return unlinked_photo_assets_df
 
@@ -218,99 +271,76 @@ def link_livephoto_assets(unlinked_livephoto_df: pd.DataFrame, api_config: dict)
     return
 
 
-def validate_config(api_config: dict, db_config: dict):
-    """Validate configuration with server connectivity check."""
-    # Initial configuration checks
-    required_api = {"api_key", "url"}
-    required_db = {"host", "dbname", "user", "password", "port"}
+def save_asset_record(df: pd.DataFrame, is_test: bool = False, is_dry: bool = False):
+    """Save identified assets to CSV file.
 
-    if missing := required_api - api_config.keys():
-        raise KeyError(f"Missing API keys: {', '.join(missing)}")
-    if missing := required_db - db_config.keys():
-        raise KeyError(f"Missing DB keys: {', '.join(missing)}")
+    Args:
+        df: DataFrame containing assets to save
+        timestamp: Timestamp string for filename
+        is_test: Whether this is a test run
+        is_dry: Whether this is a dry run
 
-    # Server connectivity check
-    try:
-        response = requests.get(
-            f"{api_config['url']}/api/server/ping",
-            headers={
-                "Accept": "application/json",
-            },
-            timeout=10,  # Prevent hanging
-        )
+    Returns:
+        str: Path to saved file
+    """
+    timestamp = datetime.now().strftime("%Y_%m_%d_%H%M%S")
+    if is_test:
+        out_file = f"TEST_RUN_linked_asset_{timestamp}.csv".replace("-", "_")
+    elif is_dry:
+        out_file = f"DRY_RUN_linked_asset_{timestamp}.csv".replace("-", "_")
+    else:
+        out_file = f"linked_assets_{timestamp}.csv".replace("-", "_")
 
-        if response.status_code != 200:
-            raise ConnectionError(f"Server returned {response.status_code}")
-
-    except requests.exceptions.RequestException as e:
-        raise ConnectionError(f"Server connection failed: {str(e)}")
-
-    # API key check
-    response = requests.get(
-        f"{api_config['url']}/api/users/me",
-        headers={
-            "Accept": "application/json",
-            "x-api-key": api_config["api_key"],
-        },
-        timeout=10,  # Prevent hanging
-    )
-
-    if response.status_code != 200:
-        error_msg = response.json()
-        print(error_msg)
-        raise ConnectionError(
-            f"API key validation failure: {error_msg['error']} - {error_msg['message']}"
-        )
-
-
-def get_confirmation(prompt: str) -> bool:
-    """Get validated yes/no input from user."""
-    while True:
-        response = input(prompt).lower()
-        if response in ("y", "yes"):
-            return True
-        if response in ("n", "no"):
-            return False
-        print("Invalid input. Please enter y/yes or n/no")
+    df.to_csv(out_file, index=False)
+    print(f"Record of identified Live Photo/Video assets saved to: {out_file}")
+    return
 
 
 def repair_live_photos(
-    live_video_suffix: str,
     immich_api_config: dict,
     immich_db_config: dict,
     dry_run: bool = False,
+    test_run: bool = False,
 ):
     validate_config(api_config=immich_api_config, db_config=immich_db_config)
 
     print("1/2: Identifying unlinked Live Photo assets...")
-    unlinked_photo_assets_df = get_unlinked_livephoto_ids(
-        live_video_suffix=live_video_suffix, db_config=immich_db_config
-    )
+    unlinked_photo_assets_df = get_unlinked_livephoto_ids(db_config=immich_db_config)
 
     print(f"Identified {unlinked_photo_assets_df.shape[0]} unlinked Live Photos.")
     print_example_unlinked_photo(
         asset=unlinked_photo_assets_df.loc[0], api_config=immich_api_config
     )
 
-    # Save record
-    save_record = get_confirmation("Save record of assets? [y/n] ")
-    if save_record:
-        timestamp = datetime.now().strftime("%Y_%m_%d_%H%M%S")
-        out_file = f"linked_assets_{timestamp}.csv".replace("-", "_")
-        unlinked_photo_assets_df.to_csv(out_file, index=False)
-        print(f"File saved to: {out_file}")
-
     if dry_run:
+        confirm_dryrun_save = get_confirmation(
+            "Would you like to save a record of the assets? [y/n] "
+        )
+
+        if confirm_dryrun_save:
+            save_asset_record(unlinked_photo_assets_df, is_dry=True)
+
         print("Dry run of Live Photo linking completed.")
         return
 
+    # Save record
+
+    if test_run:
+        print("\n============= TEST RUN ACTIVE ============\n")
+        print("Processing only the first asset as a test.")
+        print("==========================================\n")
+        unlinked_photo_assets_df = unlinked_photo_assets_df.head(1)
+
     # Confirm Link
-    confirm_link = get_confirmation("Would you like to link these assets? [y/n] ")
+    confirm_link = get_confirmation(
+        f"Would you like to link the asset{'s' if unlinked_photo_assets_df.shape[0] > 1 else ''}? [y/n] "
+    )
     if not confirm_link:
         print("Live Photo linking cancelled.")
         return None
 
-    print("2/2: Linking Live Photos and Live Video assets...")
+    print("\n2/2: Linking Live Photos and Live Video assets...")
+    save_asset_record(unlinked_photo_assets_df, is_test=test_run)
     link_livephoto_assets(
         unlinked_livephoto_df=unlinked_photo_assets_df, api_config=immich_api_config
     )
@@ -322,42 +352,16 @@ def repair_live_photos(
 
 if __name__ == "__main__":
     # ================================================
-    # ⚠️ BEFORE SHARING/COMMITTING: ⚠️
-    # 1. Replace all credentials with placeholders
-    # 2. Remove any personal IP addresses
-    # ================================================
-
-    # Immich API configuration info.
-    api_config = {
-        "api_key": "YOUR_API_KEY_HERE",
-        "url": "http://YOUR_IMMICH_URL:PORT",
-    }
-
-    # The PostGres host IP can be found from the `immich_postgres` docker
-    # container via (with sudo permission):
-    # `sudo docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' immich_postgres`
-    db_config = {
-        "dbname": "immich",
-        "user": "postgres",
-        "password": "YOUR_POSTGRES_PASSWORD",  # found in `.env` config file.
-        "host": "YOUR_POSTGRES_HOST_IP",  # see comment above to find this.
-        "port": "5432",
-    }
-
-    # The file suffix that is used to link your LivePhotos.
-    # The suffix is the only naming difference from the original LivePhoto
-    # filename. E.g.:
-    # Live Photo Filename: "1234.heic"; Live Video Filename: "1234_3.mov"
-    live_video_suffix = "_3.mov"
-
-    # ================================================
     # ⚠️ BEFORE RUNNING: ⚠️
     # 1. Ensure you have a database backup
-    # 2. Run the script with `dry_run=True` for testing
+    # 2. Run the script with `--dry-run` and `--test-run` for testing
     # ================================================
+    args = parse_link_args()
+    config = load_config(args.config)
+
     repair_live_photos(
-        live_video_suffix=live_video_suffix,
-        immich_api_config=api_config,
-        immich_db_config=db_config,
-        dry_run=True,
+        immich_api_config=config["api"],
+        immich_db_config=config["database"],
+        dry_run=args.dry_run,
+        test_run=args.test_run,
     )
