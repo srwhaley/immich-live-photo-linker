@@ -15,7 +15,7 @@ One can link Live Photos/Videos one-by-one in the Immich web app, but this is
 overwhelming when thousands of images need linked. Thus, I created this script
 to automate the process.
 
-### Features
+### Script Features
 - Identifies unlinked Live Photo/Video pairs
 - Interactive confirmation prompts
 - Validation of database connection, server connection, and server credentials
