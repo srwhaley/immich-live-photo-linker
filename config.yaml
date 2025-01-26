@@ -13,6 +13,7 @@ api:
 database:
   dbname: "immich"
   user: "postgres"
+  # Your postgres password is stored in your Immich `.env` file
   password: "YOUR_POSTGRES_PASSWORD"
   # The PostGres host IP can be found from the `immich_postgres` docker container via:
   # sudo docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' immich_postgres
