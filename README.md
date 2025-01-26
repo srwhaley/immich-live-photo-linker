@@ -5,16 +5,15 @@ components.
 
 ### Background
 iOS Live Photos consist of a photo (HEIC/JPEG) and video (MOV) component. When
-importing these into Immich, sometimes the link between these components can be
-lost. This script identifies and repairs these broken connections.
+importing Live Photos into Immich, sometimes the link between these components
+can be lost. This script identifies and repairs these broken connections.
 
-To explain why this script exists, when I first imported my 30k iOS images into
-Immich using the Immich CLI, 10% of my Live Photos were randomly not linked to
-their video counterparts.
+When I first imported my 30k iOS images into Immich using the Immich CLI, 10% of
+my Live Photos were randomly not linked to their video counterparts.
 
-One can link Live Photos/Videos one-by-one in the Immich web app, but thousdands
-of images were way too many for me link manually. Thus, I created this script to
-automate the process.
+One can link Live Photos/Videos one-by-one in the Immich web app, but this is
+overwhelming when thousands of images need linked. Thus, I created this script
+to automate the process.
 
 ### Features
 - Identifies unlinked Live Photo/Video pairs
