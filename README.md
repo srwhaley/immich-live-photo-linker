@@ -1,7 +1,7 @@
 # Immich Live Photo Linker
 A utility script that uses the Immich API to fix unlinked Live Photos in Immich
 by connecting HEIC/JPEG photos with their corresponding MOV/MP4 video
-components using the Immich API.
+components.
 
 ### Background
 iOS Live Photos consist of a photo (HEIC/JPEG) and video (MOV) component. When
