@@ -21,6 +21,27 @@ were randomly not linked. Thus, I created this script to automate the process.
 # Usage
 ***WARNING:*** Ensure you have a backup of your Immich database.
 
+Example run:
+
+```bash
+jacob@server:~/immich_scripts$ python link_livephoto_videos.py 
+1/2: Identifying unlinked Live Photo assets...
+Identified 1753 unlinked Live Photos.
+Example Unlinked Live Photo/Video File Information:
+    - Live Photo Original Filename: 2DE2659F-F48E-4396-91E3-A4C302231853.heic
+    - Live Photo Creation Date: 2022-06-03T21:02:35.193Z
+    - Live Video Original Filename: 2DE2659F-F48E-4396-91E3-A4C302231853_3.mov
+    - Live Video Creation Date: 2022-06-03T21:02:34.000Z
+Save record of assets? [y/n] y
+File saved to: linked_assets_2025_01_26_044630.csv
+Would you like to link these assets? [y/n] y
+2/2: Linking Live Photos and Live Video assets...
+Merging asset: 1753/1753
+Update Summary:
+Successfully linked 1753 files.
+Live Photos linking complete!
+```
+
 ## Installation
 1. Clone this repository
 2. Install required packages:
