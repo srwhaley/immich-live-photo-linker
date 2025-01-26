@@ -86,6 +86,14 @@ db_config = {
 live_video_suffix = "_3.mov"  # Adjust based on your Live Photo naming pattern
 ```
 
+## Running
+1. ***WARNING:*** Ensure you have a backup of your Immich database.
+2. Test the script in dry-run mode:
+   ```bash
+   python link_livephoto_videos.py
+   ```
+3. Once you're ready to link the files, set dry_run=False and run again
+
 # Notes
 - This script is specifically designed for iOS Live Photos
 - The default video suffix pattern is "_3.mov"
