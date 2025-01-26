@@ -3,17 +3,20 @@ A utility script that uses the Immich API to fix unlinked Live Photos in Immich
 by connecting HEIC/JPEG photos with their corresponding MOV/MP4 video
 components.
 
+In the event of any issues with asset linking, an unlinking script is also available.
+
 ### Contents
 
 - [Overview](#overview)
    - [Background](#background)
    - [Script Features](#script-features)
-- [Usage](#usage)
+- [Live Photo Linking Script Usage](#linking-script-usage)
     - [Requirements](#requirements)
     - [Details](#details)
     - [Installation](#installation)
     - [Configuration](#configuration)
     - [Running](#running)
+- [Live Photo Unlinking Script Usage](#unlinking-script-usage)
 - [Notes](#notes)
 
 # Overview
@@ -36,7 +39,7 @@ to automate the process.
 - Creates audit trail CSVs
 - Dry run mode for testing
 
-# Usage
+# Linking Script Usage
 ***WARNING:*** Ensure you have a backup of your Immich database.
 
 ## Requirements
@@ -63,8 +66,7 @@ Example Unlinked Live Photo/Video File Information:
     - Live Photo Creation Date: 2022-06-03T21:02:35.193Z
     - Live Video Original Filename: 2DE2659F-F48E-4396-91E3-A4C302231853_3.mov
     - Live Video Creation Date: 2022-06-03T21:02:34.000Z
-Save record of assets? [y/n] y
-File saved to: linked_assets_2025_01_26_044630.csv
+Record of identified Live Photo/Video assets saved to: linked_assets_2025_01_26_044630.csv
 Would you like to link these assets? [y/n] y
 2/2: Linking Live Photos and Live Video assets...
 Merging asset: 1753/1753
@@ -107,6 +109,19 @@ live_video_suffix = "_3.mov"  # Adjust based on your Live Photo naming pattern
    python link_livephoto_videos.py
    ```
 3. Once you're ready to link the files, set `dry_run=False` and run again
+
+# Unliking Script Usage
+In the event that some major issue occurred with the linking script, an unlinking script is 
+also available.
+
+## Running
+1. Ensure you have a backup of your Immich postgres database
+2. Configure the script as you did with the linking script, ensuring you have added the correct `.csv` path.
+3. Test the script in dry-run mode (`dry_run=True`)\
+   ```bash
+   python unlink_livephoto_videos.py
+   ```
+5. Once you've confirmed the process is ready, run the linking script with `dry_run=False`. 
 
 # Notes
 - This script is specifically designed for iOS Live Photos
