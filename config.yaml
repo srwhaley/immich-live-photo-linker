@@ -1,0 +1,18 @@
+# Immich Live Photo Linker Configuration
+# =====================================
+# This configuration file contains settings for the Immich Live Photo Linker script.
+# - Replace all of the UPPER_CASE variables with your info.
+# - Make sure to backup your database before running the script.
+
+api:
+  api-key: "YOUR_API_KEY"
+  url: "http//YOUR_IMMICH_URL:PORT"
+
+database:
+  dbname: "immich"
+  user: "postgres"
+  password: "YOUR_POSTGRES_PASSWORD"
+  # The PostGres host IP can be found from the `immich_postgres` docker container via:
+  # sudo docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' immich_postgres
+  host:  "YOUR POSTGRES_HOST_IP"
+  port: "5432"
