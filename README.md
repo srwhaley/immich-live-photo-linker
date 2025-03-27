@@ -1,87 +1,95 @@
 # Immich Live Photo Linker
-A utility script that uses the Immich API to fix unlinked iOS Live Photos in Immich
-by connecting HEIC/JPEG photos with their corresponding MOV/MP4 video
+
+A utility script that uses the Immich API to fix unlinked iOS Live Photos in
+Immich by connecting HEIC/JPEG photos with their corresponding MOV/MP4 video
 components.
 
-In the event of any issues with asset linking, an unlinking script is also
-provided.
+> **⚠️ WARNING: ALWAYS BACKUP YOUR IMMICH DATABASE BEFORE RUNNING THESE SCRIPTS**
 
-### Contents
+**Key Features:**
+- Identifies and links unlinked Live Photo/Video pairs
+- Interactive confirmation prompts
+- Validates database connection, server connection, and credentials
+- Creates audit trail CSVs for recovery if needed
+- Dry-run and test-run modes
+
+## Contents
 
 - [Overview](#overview)
-   - [Background](#background)
-   - [Script Features](#script-features)
-- [Live Photo Linking Script Usage](#linking-script-usage)
-    - [Requirements](#requirements)
-    - [Installation](#installation)
-    - [Configuration](#configuration)
-    - [Running](#running)
-- [Live Photo Unlinking Script Usage](#unlinking-script-usage)
+- [Quick Start](#quick-start)
+- [Requirements](#requirements)
+- [Installation & Configuration](#installation--configuration)
+- [Detailed Usage](#detailed-usage)
+  - [Link Script](#link-script)
+  - [Unlink Script](#unlink-script)
 - [Notes](#notes)
 
-# Overview
-### Background
+## Overview
+
 iOS Live Photos consist of a photo (HEIC/JPEG) and video (MOV) component. When
 importing Live Photos into Immich, sometimes the link between these components
 can be lost. This script identifies and repairs these broken connections.
 
-One can link Live Photos/Videos one-by-one in the Immich web app, but this is
-overwhelming when thousands of images need linked. As such, I created this
-script to automate the process.
+While you can link Live Photos/Videos one-by-one in the Immich web app, this
+script automates the process for handling thousands of images.
 
-### Script Features
-- Identifies unlinked Live Photo/Video pairs
-- Interactive confirmation prompts
-- Validation of database connection, server connection, and server credentials
-- Creates audit trail CSVs
-- Dry run and test run modes
-- Command line interface
+## Quick Start
 
-# Linking Script Usage
-***WARNING:*** Ensure you have a backup of your Immich database.
+1. Clone repo and install requirements
+2. Configure `config.yaml` with your Immich API key and database settings
+3. Run linking script with safety checks:
+   ```bash
+   python link_livephoto_videos.py --dry-run     # Test configuration
+   python link_livephoto_videos.py --test-run    # Process single asset
+   python link_livephoto_videos.py               # Process all assets
+   ```
 
 ## Requirements
+
 - Python 3.9+
 - Immich API key
 - Immich Postgres Database access
-    - See instructions in `config.yaml` for finding this IP
 - Script package dependencies (`requirements.txt`)
 
-## Installation
+## Installation & Configuration
+
 1. Clone this repository
 2. Install required packages:
    ```bash
    pip install -r requirements.txt
    ```
+3. Update `config.yaml` with your settings:
+   - Immich API key and URL
+   - Database credentials
 
-## Configuration
-Update the cloned `config.yaml` file with your Immich API and database settings.
+   To find your Postgres database IP:
+   ```bash
+   sudo docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' immich_postgres
+   ```
 
-Otherwise, create your own config file and copy the content structure from the
-`config.yaml` file in this repo.
+## Detailed Usage
 
-To identify the Immich Postgres database IP, you can run:
+### Link Script
 
-```
-sudo docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' immich_postgres
-```
+Run the script with different modes:
 
-## Running
-### Example Script Run
 ```bash
-# Dry run to test configuration and see what would be linked
+# Dry run to test configuration (recommended first step)
 python link_livephoto_videos.py --dry-run
 
-# Test run to process a single asset
+# Test run to process only one asset (recommended second step)
 python link_livephoto_videos.py --test-run
 
 # Full run to process all unlinked assets
 python link_livephoto_videos.py
+
+# Using a custom config file
+python link_livephoto_videos.py --config my_custom_config.yaml
 ```
 
 Example output:
 ```bash
-jacob@server:~/immich_scripts$ python link_livephoto_videos.py 
+jacob```server:~/immich_scripts$ python link_livephoto_videos.py 
 1/2: Identifying unlinked Live Photo assets...
 Identified 1753 unlinked Live Photos.
 Example Unlinked Live Photo/Video File Information:
@@ -99,40 +107,25 @@ Successfully linked 1753 files.
 Live Photos linking complete!
 ```
 
-### Step-By-Step
-1. ***WARNING:*** Ensure you have a backup of your Immich database.
-2. Test the script in dry-run mode:
-   ```bash
-   python link_livephoto_videos.py --dry-run
-   ```
-3. Test with a single asset:
-   ```bash
-   python link_livephoto_videos.py --test-run
-   ```
-4. Once you're ready to link all files:
-   ```bash
-   python link_livephoto_videos.py
-   ```
+### Unlink Script
 
-# Unlinking Script Usage
-In the event that some major issue occurred with the linking script, an
-unlinking script is also available.
+If issues occur, use the unlinking script to revert changes:
 
-## Running
-1. Ensure you have a backup of your Immich postgres database
-2. Configure the script using the same `config.yaml` file as the linking script
-3. Test the script in dry-run mode:
-   ```bash
-   python unlink_livephoto_videos.py --linked-csv "path/to/linked_assets_audit.csv" --dry-run
-   ```
-4. Once you've confirmed the process is ready:
-   ```bash
-   python unlink_livephoto_videos.py --linked-csv "path/to/linked_assets_audit.csv"
-   ```
+```bash
+# Dry run to test
+python unlink_livephoto_videos.py --linked-csv "path/to/linked_assets_audit.csv" --dry-run
 
-# Notes
-- This script was designed and tested for iOS Live Photos.
-- Always backup your database before running.
-- Test with `--dry-run` first, then `--test-run` before running the full
-  process.
-- Use `--config` flag to specify a different config file location if needed.
+# Process the unlinking
+python unlink_livephoto_videos.py --linked-csv "path/to/linked_assets_audit.csv"
+
+# Using a custom config file
+python unlink_livephoto_videos.py --linked-csv "path/to/linked_assets_audit.csv" --config my_custom_config.yaml
+```
+
+## Notes
+
+- Designed and tested for iOS Live Photos
+- The linking script creates a CSV audit file that can be used with the
+  unlinking script if needed
+- Both scripts require direct access to your Immich database and API
+- Use `--config` flag to specify a different config file location if needed
