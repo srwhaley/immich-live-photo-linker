@@ -17,16 +17,40 @@ def get_confirmation(prompt: str) -> bool:
         print("Invalid input. Please enter y/yes or n/no")
 
 
-def validate_config(api_config: dict, db_config: dict):
+def validate_config(config: dict):
     """Validate configuration with server connectivity check."""
-    # Initial configuration checks
-    required_api = {"api_key", "url"}
-    required_db = {"host", "dbname", "user", "password", "port"}
 
-    if missing := required_api - api_config.keys():
-        raise KeyError(f"Missing API keys: {', '.join(missing)}")
-    if missing := required_db - db_config.keys():
-        raise KeyError(f"Missing DB keys: {', '.join(missing)}")
+    # Check if all three required sections exist
+    required_sections = {"api", "database", "user-info"}
+    if missing_sections := required_sections - set(config.keys()):
+        raise KeyError(
+            f"Configuration must contain {', '.join(required_sections)} sections. Missing: {', '.join(missing_sections)}"
+        )
+
+    api_config = config["api"]
+    db_config = config["database"]
+    user_config = config["user-info"]
+
+    # Required configuration keys
+    required_api_keys = {"api-key", "url"}
+    required_db_keys = {"host", "dbname", "user", "password", "port"}
+    required_user_keys = {"name"}
+
+    # Validate API configuration
+    if missing := required_api_keys - set(api_config.keys()):
+        raise KeyError(f"Missing required API configuration keys: {', '.join(missing)}")
+
+    # Validate database configuration
+    if missing := required_db_keys - set(db_config.keys()):
+        raise KeyError(
+            f"Missing required database configuration keys: {', '.join(missing)}"
+        )
+
+    # Validate user_info configuration
+    if missing := required_user_keys - set(user_config.keys()):
+        raise KeyError(
+            f"Missing required user_info configuration keys: {', '.join(missing)}"
+        )
 
     # Server connectivity check
     try:
@@ -49,7 +73,7 @@ def validate_config(api_config: dict, db_config: dict):
         f"{api_config['url']}/api/users/me",
         headers={
             "Accept": "application/json",
-            "x-api-key": api_config["api_key"],
+            "x-api-key": api_config["api-key"],
         },
         timeout=10,  # Prevent hanging
     )
@@ -137,10 +161,6 @@ def load_config(config_path: str) -> dict:
         KeyError: If required configuration keys are missing
         yaml.YAMLError: If config file is not valid YAML
     """
-    # Required configuration keys
-    required_api_keys = {"api_key", "url"}
-    required_db_keys = {"dbname", "user", "password", "host", "port"}
-
     # Check if config file exists
     if not Path(config_path).is_file():
         raise FileNotFoundError(f"Configuration file not found: {config_path}")
@@ -150,17 +170,6 @@ def load_config(config_path: str) -> dict:
         config = yaml.safe_load(f)
 
     # Validate config structure
-    if "api" not in config or "database" not in config:
-        raise KeyError("Configuration must contain 'api' and 'database' sections")
-
-    # Validate API configuration
-    if missing := required_api_keys - set(config["api"].keys()):
-        raise KeyError(f"Missing required API configuration keys: {', '.join(missing)}")
-
-    # Validate database configuration
-    if missing := required_db_keys - set(config["database"].keys()):
-        raise KeyError(
-            f"Missing required database configuration keys: {', '.join(missing)}"
-        )
+    validate_config(config)
 
     return config
