@@ -1,2 +1,4 @@
+**/.DS_Store
 local.yaml
-output/*
+output/
+__pycache__/
