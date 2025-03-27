@@ -21,6 +21,7 @@ import requests
 import psycopg2
 import pandas as pd
 
+import os
 from datetime import datetime
 from utils import get_confirmation, load_config, parse_link_args
 
@@ -302,11 +303,6 @@ def link_livephoto_assets(unlinked_livephoto_df: pd.DataFrame, api_config: dict)
         )
 
     return
-
-
-import os
-from datetime import datetime
-import pandas as pd
 
 
 def save_asset_record(
