@@ -42,7 +42,7 @@ def unlink_livephoto_assets(linked_assets_df: pd.DataFrame, api_config: dict):
         headers = {
             "Content-Type": "application/json",
             "Accept": "application/json",
-            "x-api-key": api_config["api_key"],
+            "x-api-key": api_config["api-key"],
         }
 
         result = requests.request("PUT", url=url, headers=headers, data=payload)
