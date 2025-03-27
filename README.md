@@ -11,7 +11,7 @@ components.
 - Interactive confirmation prompts
 - Validates database connection, server connection, and credentials
 - Creates audit trail CSVs for recovery if needed
-- Dry-run and test-run modes
+- Dry-run and single-test-run modes
 
 ## Contents
 
@@ -89,7 +89,7 @@ python link_livephoto_videos.py --config my_custom_config.yaml
 
 Example output:
 ```bash
-jacob```server:~/immich_scripts$ python link_livephoto_videos.py 
+jacob@server:~/immich_scripts$ python link_livephoto_videos.py 
 1/2: Identifying unlinked Live Photo assets...
 Identified 1753 unlinked Live Photos.
 Example Unlinked Live Photo/Video File Information:
