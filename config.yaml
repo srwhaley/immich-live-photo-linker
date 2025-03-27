@@ -5,7 +5,8 @@
 # - Make sure to backup your database before running the script.
 
 user_info:
-  name: "{IMMICH_USERNAME}"
+  # Your Immich user name.
+  name: "{IMMICH_USERNAME}" 
 
 api:
   # You can generate an Immich API key by following the documentation link:
