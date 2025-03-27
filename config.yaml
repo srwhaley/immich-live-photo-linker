@@ -4,7 +4,7 @@
 # - Replace all of the UPPER_CASE variables with your info.
 # - Make sure to backup your database before running the script.
 
-user_info:
+user-info:
   # Your Immich user name.
   name: "{IMMICH_USERNAME}" 
 
