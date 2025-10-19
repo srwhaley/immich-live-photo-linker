@@ -51,27 +51,22 @@ def get_unlinked_livephoto_ids(db_config: dict, user_config: dict) -> pd.DataFra
     #   - Photo/Video files with identical filenames but mismatched timestamps.
     with psycopg2.connect(**db_config) as conn:
         with conn.cursor() as cur:
-            # 0. Get user name
-            cur.execute(
-                """
-                SELECT id FROM users WHERE name = %s
-                """,
-                (user_config["name"],),
-            )
-
-            user_id = cur.fetchone()
-            if not user_id:
-                raise ValueError(f"User '{user_config['name']}' not found")
+            cur.execute("""
+                SELECT table_name
+                FROM information_schema.tables
+                WHERE table_type = 'BASE TABLE'
+                AND table_schema NOT IN ('pg_catalog', 'information_schema');
+            """)
+            tables = [row[0] for row in cur.fetchall()]
+            print(sorted(tables))
 
             # 1. Get all live video assets
             cur.execute(
                 r"""
                 SELECT id, "originalFileName", "fileCreatedAt"
-                FROM assets 
-                WHERE "ownerId" = %s
-                AND lower("originalFileName") ~ '\.(mov|mp4)$';
-                """,
-                user_id,
+                FROM asset 
+                WHERE lower("originalFileName") ~ '\.(mov|mp4)$';
+                """
             )
             video_assets = cur.fetchall()
             video_assets_df = pd.DataFrame(
@@ -85,22 +80,21 @@ def get_unlinked_livephoto_ids(db_config: dict, user_config: dict) -> pd.DataFra
 
             video_assets_df["photo_basefilename"] = (
                 video_assets_df["video_filename"]
-                .str.replace(r"\.[^.]+$", "", regex=True)
-                .str.replace(r"\_\d$", "", regex=True)
+                .str.replace(r"\.mov$", "", regex=True)
             )
+            print(video_assets_df["photo_basefilename"])
 
             # 2. Get all live photo assets that are missing livePhotoVideoId's.
             photo_basefilename = tuple(video_assets_df["photo_basefilename"].tolist())
             cur.execute(
                 r"""
                 SELECT id, "originalFileName", "fileCreatedAt"
-                FROM assets
-                WHERE "ownerId" = %s
-                AND "livePhotoVideoId" IS NULL
+                FROM asset
+                WHERE "livePhotoVideoId" IS NULL
                 AND lower("originalFileName") !~ '\.(mov|mp4)$'
-                AND regexp_replace("originalFileName", '\..*$', '') IN %s;
+                AND lower("originalFileName") IN %s;
                 """,
-                (user_id, photo_basefilename),
+                (photo_basefilename,)
             )
 
             unlinked_photo_assets = cur.fetchall()
@@ -111,7 +105,7 @@ def get_unlinked_livephoto_ids(db_config: dict, user_config: dict) -> pd.DataFra
 
             unlinked_photo_assets_df["photo_basefilename"] = unlinked_photo_assets_df[
                 "photo_filename"
-            ].str.replace(r"\.[^.]+$", "", regex=True)
+            ]
             unlinked_photo_assets_df = unlinked_photo_assets_df.merge(
                 video_assets_df, on="photo_basefilename", how="left"
             )
@@ -126,72 +120,71 @@ def get_unlinked_livephoto_ids(db_config: dict, user_config: dict) -> pd.DataFra
                     f"Removed {o_nfile - unlinked_photo_assets_df.shape[0]} unlinked assets with missing video files."
                 )
 
-            # 3.1 Remove duplicated ids (based on the *base* filename)
-            candidate_base_filenames = tuple(
-                unlinked_photo_assets_df["photo_basefilename"].tolist()
-            )
-            cur.execute(
-                r"""
-                WITH assets_with_base AS (
-                    SELECT
-                        id,
-                        "originalFileName",
-                        "ownerId",
-                        regexp_replace("originalFileName", '\..*$', '') AS base_filename
-                    FROM assets
-                    WHERE "ownerId" = %s
-                    AND lower("originalFileName") !~ '\.(mov|mp4)$'  -- exclude video files
-                )
-                SELECT base_filename
-                FROM assets_with_base
-                GROUP BY base_filename
-                HAVING COUNT(*) > 1
-                AND base_filename in %s;
-                """,
-                (user_id, candidate_base_filenames),
-            )
+            # # 3.1 Remove duplicated ids (based on the *base* filename)
+            # candidate_base_filenames = tuple(
+            #     unlinked_photo_assets_df["photo_basefilename"].tolist()
+            # )
+            # cur.execute(
+            #     r"""
+            #     WITH assets_with_base AS (
+            #         SELECT
+            #             id,
+            #             "originalFileName",
+            #             "ownerId",
+            #             regexp_replace("originalFileName", '\..*$', '') AS base_filename
+            #         FROM asset
+            #         WHERE lower("originalFileName") !~ '\.(mov|mp4)$'  -- exclude video files
+            #     )
+            #     SELECT base_filename
+            #     FROM assets_with_base
+            #     GROUP BY base_filename
+            #     HAVING COUNT(*) > 1
+            #     AND base_filename in %s;
+            #     """,
+            #     (candidate_base_filenames,)
+            # )
 
-            duplicate_files = [row[0] for row in cur.fetchall()]
-            if duplicate_files:
-                unlinked_photo_assets_df = unlinked_photo_assets_df[
-                    ~unlinked_photo_assets_df["photo_basefilename"].isin(
-                        duplicate_files
-                    )
-                ]
+            # duplicate_files = [row[0] for row in cur.fetchall()]
+            # if duplicate_files:
+            #     unlinked_photo_assets_df = unlinked_photo_assets_df[
+            #         ~unlinked_photo_assets_df["photo_basefilename"].isin(
+            #             duplicate_files
+            #         )
+            #     ]
 
             # Merge the video asset df to the unlinked photo df
             if unlinked_photo_assets_df.empty:
                 print("No unlinked Live Photos identified. Ending script.")
                 quit()
 
-    # 3.2 Filter the unlinked photo assets df to only include photo/video files
-    # with a matching time stamp within 3 seconds.
-    # This is because sometimes video/photo filenames can be reused over time.
-    unlinked_photo_assets_df["photo_dt"] = pd.to_datetime(
-        unlinked_photo_assets_df["photo_filedate"], utc=True
-    )
-    unlinked_photo_assets_df["video_dt"] = pd.to_datetime(
-        unlinked_photo_assets_df["video_filedate"], utc=True
-    )
+    # # 3.2 Filter the unlinked photo assets df to only include photo/video files
+    # # with a matching time stamp within 3 seconds.
+    # # This is because sometimes video/photo filenames can be reused over time.
+    # unlinked_photo_assets_df["photo_dt"] = pd.to_datetime(
+    #     unlinked_photo_assets_df["photo_filedate"], utc=True
+    # )
+    # unlinked_photo_assets_df["video_dt"] = pd.to_datetime(
+    #     unlinked_photo_assets_df["video_filedate"], utc=True
+    # )
 
-    # Calculate time difference in seconds
-    unlinked_photo_assets_df["time_diff"] = (
-        (unlinked_photo_assets_df["photo_dt"] - unlinked_photo_assets_df["video_dt"])
-        .dt.total_seconds()
-        .abs()
-    )
-    MAX_TIME_DIFF = 3  # seconds
-    unlinked_photo_assets_df = unlinked_photo_assets_df[
-        unlinked_photo_assets_df["time_diff"] <= MAX_TIME_DIFF
-    ]
+    # # Calculate time difference in seconds
+    # unlinked_photo_assets_df["time_diff"] = (
+    #     (unlinked_photo_assets_df["photo_dt"] - unlinked_photo_assets_df["video_dt"])
+    #     .dt.total_seconds()
+    #     .abs()
+    # )
+    # MAX_TIME_DIFF = 3  # seconds
+    # unlinked_photo_assets_df = unlinked_photo_assets_df[
+    #     unlinked_photo_assets_df["time_diff"] <= MAX_TIME_DIFF
+    # ]
 
-    unlinked_photo_assets_df = unlinked_photo_assets_df.drop(
-        ["photo_dt", "video_dt", "time_diff"], axis=1
-    ).reset_index()
+    # unlinked_photo_assets_df = unlinked_photo_assets_df.drop(
+    #     ["photo_dt", "video_dt", "time_diff"], axis=1
+    # ).reset_index()
 
-    if unlinked_photo_assets_df.empty:
-        print("No unlinked Live Photos identified. Ending script.")
-        quit()
+    # if unlinked_photo_assets_df.empty:
+    #     print("No unlinked Live Photos identified. Ending script.")
+    #     quit()
 
     return unlinked_photo_assets_df
 
