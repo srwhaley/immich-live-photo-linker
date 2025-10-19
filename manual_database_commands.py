@@ -8,6 +8,7 @@ from utils import load_config
 with psycopg2.connect(**load_config("config.yaml")["database"]) as conn:
     with conn.cursor() as cur:
         # 0. Get user name
+        cur.execute('DESCRIBE asset')
         cur.execute(
             """
             delete from system_metadata where key like 'memories-state'; truncate table memory cascade
